@@ -1,0 +1,53 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - heading "Home Energy Flow" [level=1] [ref=e8]
+          - paragraph [ref=e9]: Real-time solar generation, operational diagnostics, and historical context in one operator shell.
+        - button "Refresh" [ref=e11] [cursor=pointer]
+      - tablist "Dashboard sections" [ref=e12]:
+        - tab "Live" [ref=e13] [cursor=pointer]
+        - tab "History" [selected] [ref=e14] [cursor=pointer]
+  - main [ref=e15]:
+    - region "System diagnostics" [ref=e16]:
+      - generic [ref=e18]:
+        - paragraph [ref=e19]: Diagnostics
+        - paragraph [ref=e20]: Operational health stays visible while live telemetry, history, and intelligence refresh independently.
+      - generic [ref=e21]:
+        - generic [ref=e22]:
+          - paragraph [ref=e23]: Ingest freshness
+          - paragraph [ref=e26]: Fresh
+          - paragraph [ref=e27]: Last sample 35s ago • 4/3/2026, 5:08:41 PM
+        - generic [ref=e28]:
+          - paragraph [ref=e29]: Gateway
+          - paragraph [ref=e32]: Reachable
+          - paragraph [ref=e33]: PV Supervisor PVS6 • FW 2025.10, Build 61846
+        - generic [ref=e34]:
+          - paragraph [ref=e35]: API health
+          - paragraph [ref=e38]: Healthy
+          - paragraph [ref=e39]: Database, migrations, and ingest checks are passing.
+        - generic [ref=e40]:
+          - paragraph [ref=e41]: Open alerts
+          - paragraph [ref=e44]: "14"
+          - paragraph [ref=e45]: 14 active alerts require review.
+    - generic [ref=e46]:
+      - region "Historical analysis" [ref=e48]:
+        - generic [ref=e49]:
+          - generic [ref=e50]
+          - generic [ref=e134]: Showing All panels • raw • 2026-04-02T05:12 -> 2026-04-03T05:12
+        - generic [ref=e63]:
+          - generic [ref=e64]
+          - generic [ref=e69]
+          - generic [ref=e75]
+          - generic [ref=e78]
+          - generic [ref=e81]
+          - generic [ref=e88]
+      - generic [ref=e91]:
+        - region "Alert center" [ref=e92]:
+          - generic [ref=e93]
+          - generic [ref=e99]
+          - generic [ref=e109]
+        - region "Intelligence summary" [ref=e117]:
+          - generic [ref=e118]
+          - status [ref=e248]

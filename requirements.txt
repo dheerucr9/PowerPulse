@@ -1,0 +1,12 @@
+flask==3.0.3
+requests==2.31.0
+urllib3==2.2.1
+fastapi==0.110.0
+uvicorn[standard]==0.29.0
+astral==3.2
+python-dotenv==1.0.1
+SQLAlchemy==2.0.36
+alembic==1.13.3
+psycopg[binary]==3.2.3
+APScheduler==3.10.4
+prometheus-client==0.21.0

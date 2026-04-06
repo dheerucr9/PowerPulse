@@ -1,0 +1,22 @@
+# General
+.env
+data/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+.venv-mcp/
+venv/
+
+# Frontend build artifacts and deps
+frontend/node_modules/
+frontend/dist/
+node_modules/
+npm-debug.log
+.DS_Store
+.idea/
+
+# Docker stuff
+*.log

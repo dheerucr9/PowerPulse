@@ -1,0 +1,152 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: solar-api
+    environment:
+      DATABASE_DSN: ${DATABASE_DSN:-postgresql+psycopg://solar:solar@db:5432/solar}
+      DB_PATH: ${DB_PATH:-/data/solar.db}
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      FRONTEND_API_ORIGIN: ${FRONTEND_API_ORIGIN:-http://127.0.0.1:8000}
+      TZ: ${TZ}
+      GATEWAY_IP: ${GATEWAY_IP}
+      GATEWAY_USER: ${GATEWAY_USER}
+      GATEWAY_PASS: ${GATEWAY_PASS}
+      GATEWAY_TIMEOUT: ${GATEWAY_TIMEOUT:-20}
+      POLL_SECONDS: ${POLL_SECONDS:-60}
+      ENABLE_METRICS: ${ENABLE_METRICS:-1}
+      METRICS_ENABLED: ${METRICS_ENABLED:-1}
+      BACKUP_DIR: ${BACKUP_DIR:-/backups}
+      BACKUP_FILE: ${BACKUP_FILE:-/backups/solar-backup.sql}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      LATITUDE: ${LATITUDE}
+      LONGITUDE: ${LONGITUDE}
+    volumes:
+      - ./data:/data
+      - ./backups:/backups
+    ports:
+      - "0.0.0.0:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8000/health/live || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: solar-worker
+    command: ["python", "-m", "backend.worker_entry"]
+    environment:
+      DATABASE_DSN: ${DATABASE_DSN:-postgresql+psycopg://solar:solar@db:5432/solar}
+      DB_PATH: ${DB_PATH:-/data/solar.db}
+      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      FRONTEND_API_ORIGIN: ${FRONTEND_API_ORIGIN:-http://127.0.0.1:8000}
+      TZ: ${TZ}
+      GATEWAY_IP: ${GATEWAY_IP}
+      GATEWAY_USER: ${GATEWAY_USER}
+      GATEWAY_PASS: ${GATEWAY_PASS}
+      GATEWAY_TIMEOUT: ${GATEWAY_TIMEOUT:-20}
+      POLL_SECONDS: ${POLL_SECONDS:-60}
+      INTELLIGENCE_SECONDS: ${INTELLIGENCE_SECONDS:-300}
+      ENABLE_METRICS: ${ENABLE_METRICS:-1}
+      METRICS_ENABLED: ${METRICS_ENABLED:-1}
+      WORKER_METRICS_ENABLED: ${WORKER_METRICS_ENABLED:-1}
+      WORKER_METRICS_PORT: ${WORKER_METRICS_PORT:-9101}
+      BACKUP_DIR: ${BACKUP_DIR:-/backups}
+      BACKUP_FILE: ${BACKUP_FILE:-/backups/solar-backup.sql}
+      BACKUP_RETENTION_DAYS: ${BACKUP_RETENTION_DAYS:-7}
+      LATITUDE: ${LATITUDE}
+      LONGITUDE: ${LONGITUDE}
+      WALL_CONNECTOR_IP: ${WALL_CONNECTOR_IP}
+      WALL_CONNECTOR_POLL_SECONDS: ${WALL_CONNECTOR_POLL_SECONDS:-60}
+    volumes:
+      - ./data:/data
+      - ./backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9101/metrics || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  db:
+    image: timescale/timescaledb:2.26.1-pg16
+    container_name: solar-db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-solar}
+      POSTGRES_USER: ${POSTGRES_USER:-solar}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-solar}
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-solar} -d ${POSTGRES_DB:-solar}"]
+      interval: 10s
+      timeout: 5s
+      retries: 8
+      start_period: 20s
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    container_name: solar-prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+    ports:
+      - "${HOST_BIND_IP:-127.0.0.1}:9090:9090"
+    volumes:
+      - ./ops/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      api:
+        condition: service_healthy
+      worker:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 9090 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana-oss:10.4.3
+    container_name: solar-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+    ports:
+      - "${HOST_BIND_IP:-127.0.0.1}:3001:3000"
+    volumes:
+      - ./grafana:/var/lib/grafana
+      - ./ops/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./ops/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      prometheus:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped

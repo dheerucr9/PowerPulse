@@ -1,0 +1,61 @@
+# Environment and secrets
+.env
+
+# OS cruft
+.DS_Store
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual envs
+venv/
+.venv/
+.venv-mcp/
+
+# SQLite / data
+*.db
+*.db-journal
+*.sqlite
+/data/*
+!/data/.gitkeep
+
+# Node / misc
+node_modules/
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+.idea/
+
+# Docker
+*.log
+
+# Test results
+test-results/
+
+# Static build output
+static/dist/
+
+# PostgreSQL data
+pgdata/
+
+# Grafana data
+grafana/
+
+# Backups
+backups/
+
+# Playwright
+.playwright-mcp/
+
+# Agent/Sisyphus internal data
+.sisyphus/
+
+# Temp files
+tmp/
+
+# Duplicate artifacts
+*2.html
+*2.json
