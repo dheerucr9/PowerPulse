@@ -1,35 +1,244 @@
-# Solar Real-Time Dashboard Context (2026-03-30)
+# PowerPulse - Real-Time Home Energy Monitoring
 
-**Repo:** /Users/dheeraj/Documents/snaird_v2/by-the-power-of-ai/s_power  
-**Stack:** FastAPI backend, worker poller, React frontend bundled with esbuild (frontend/src/main.jsx -> static/dist/bundle.js served by FastAPI).
+**Repo:** https://github.com/dheerucr9/PowerPulse
+**Stack:** FastAPI backend, APScheduler worker poller, React frontend with Vite, ECharts for visualizations, PostgreSQL + TimescaleDB.
 
-## Frontend
-- Live tab: animated sun -> house vertical line; house <-> grid horizontal band with directional arrow; house illustration removed. Bottom strip shows up to 13 panel chips with hover tooltip and low/fault warning badge.
-- History tab: Chart.js via unified `/series`; axes labeled "Time" (x) and "Power (kW)" (y).
-- Frontend is served from bundled `static/dist/index.html` (root-level `solar_dashboard.html` removed as legacy).
+**Last Updated:** 2026-04-06
 
-## Backend API (`backend/main.py`)
-- Serves built assets from `/static` (dist).
-- Endpoints: `/devices` (gateway proxy), `/series` (house + panel; optional `panel_id`; intervals raw/5m/1h), `/house_series` (shim calling `/series`), `/latest`.
-- Env vars: `GATEWAY_IP/USER/PASS`, `DB_PATH`, `TZ`, `GATEWAY_TIMEOUT`, etc.
+---
 
-## Poller (`backend/poller.py`)
-- Polls gateway during solar window (lat/long, TZ, buffer) every `POLL_SECONDS` (default 60).
-- Stores `samples_raw` (panel-level) and `house_raw` (site).
-- Consumption derived: if gateway consumption is negative (export), add to production and clamp to >= 0.
-- Net fix: `net_kw = production_kw - derived_consumption`.
-- Retries using requests + urllib3 Retry; TLS verify disabled.
+## Overview
 
-## Docker
-- `Dockerfile` builds frontend (node 18, `npm ci`, esbuild) then backend API + embedded poller (python:3.11-slim).
-- `docker-compose.yml` mounts `./data` to `/data`, exposes port 8000, env via `.env` (git-ignored).
-- `.dockerignore` excludes `frontend/node_modules`, `dist`, `.env`, `data`.
+PowerPulse is a self-contained Docker stack for monitoring home energy systems. It polls solar gateways and EV chargers in real-time, stores telemetry in TimescaleDB, and exposes a modern dashboard + REST API.
 
-## Data
-- SQLite at `data/solar.db`; tables `samples_raw`, `house_raw`.
-- Net backfill (if needed):  
-  `UPDATE house_raw SET net_kw = production_kw - consumption_kw WHERE production_kw IS NOT NULL AND consumption_kw IS NOT NULL;`
+---
 
-## Usage
-- From repo root: `docker compose up --build` (or `build --no-cache`, `up --force-recreate`).
-- Frontend build served via API image; `static/` intentionally empty.
+## Features
+
+- **Solar Monitoring** - Per-panel power output, voltage, current, temperature
+- **Consumption Tracking** - Household energy usage in real-time
+- **Grid Flow** - Net energy flow (import/export) visualization
+- **EV Charging** - Tesla Wall Connector integration
+- **Alerts** - Configurable anomaly detection
+- **Dark/Light Mode** - Dashboard theme toggle
+- **Historical Charts** - Interactive ECharts with line & bar views
+
+---
+
+## Frontend (`frontend/`)
+
+### Tech Stack
+- React 18 + TypeScript
+- Vite for bundling
+- TanStack Query for data fetching
+- ECharts for visualizations
+- Custom CSS with design tokens
+
+### Key Components
+- `App.tsx` - Main dashboard layout
+- `LiveFlow.tsx` - Real-time energy flow visualization (Solar → Home → Grid → Tesla)
+- `StatCard.tsx` / `ChargerStatCard.tsx` - Metric cards
+- `PowerHistoryChart.tsx` - Line and bar chart with ECharts
+- `HistoryFilters.tsx` - Time range presets (relative + absolute)
+- `AlertsPanel.tsx` - Alert management sidebar
+- `DashboardHeader.tsx` - Header with theme toggle
+
+### Features
+- Dark/light mode with system preference detection
+- Responsive design
+- Live polling every 20s (TanStack Query)
+- Staggered entrance animations
+
+---
+
+## Backend (`backend/`)
+
+### Tech Stack
+- FastAPI with Pydantic schemas
+- PostgreSQL + TimescaleDB (hypertable for time-series)
+- APScheduler for polling jobs
+- Alembic for migrations
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/latest` | GET | Latest solar snapshot |
+| `/series` | GET | Time series data (paginated, cursor-based) |
+| `/house_series` | GET | House-level time series |
+| `/charger/latest` | GET | Tesla Wall Connector latest status |
+| `/charger/history` | GET | Tesla Wall Connector history |
+| `/api/alerts` | GET/POST | Alert management |
+| `/api/intelligence/summary` | GET | Intelligence insights |
+| `/health` | GET | Health check |
+| `/metrics` | GET | Prometheus metrics |
+
+### Database Tables
+
+| Table | Description |
+|-------|-------------|
+| `site_power_samples` | Site-level telemetry (production, consumption, net) |
+| `panel_power_samples` | Per-panel telemetry |
+| `charger_samples` | Tesla Wall Connector samples |
+| `alerts` | Alert records |
+| `alert_acknowledgements` | Acknowledgment tracking |
+| `anomalies` | Detected anomalies |
+| `site_panels` | Panel registry |
+
+### Poller (`poller.py` / `worker_entry.py`)
+
+- Solar polling: Every `POLL_SECONDS` (default 60s)
+- Charger polling: Every `WALL_CONNECTOR_POLL_SECONDS` (default 60s)
+- Intelligence runs every `INTELLIGENCE_SECONDS` (default 300s)
+
+---
+
+## Environment Variables
+
+### Gateway (Required)
+- `GATEWAY_IP` - Solar gateway IP
+- `GATEWAY_USER` - Gateway username
+- `GATEWAY_PASS` - Gateway password
+- `GATEWAY_TIMEOUT` - Request timeout (default 20s)
+
+### Location (Required)
+- `LATITUDE` / `LONGITUDE` - For day/night rendering
+- `TZ` - Timezone (e.g., `America/Los_Angeles`)
+
+### Tesla Wall Connector (Optional)
+- `WALL_CONNECTOR_IP` - Wall Connector IP
+- `WALL_CONNECTOR_POLL_SECONDS` - Poll interval
+
+### Database
+- `DATABASE_DSN` - PostgreSQL connection string
+- `POSTGRES_DB/USER/PASSWORD/HOST/PORT`
+
+### Network
+- `HOST_BIND_IP` - Bind IP (default 127.0.0.1)
+- `FRONTEND_API_ORIGIN` - For CORS
+
+---
+
+## Docker Services
+
+| Service | Port | Description |
+|---------|------|-------------|
+| `api` | 8000 | FastAPI + dashboard |
+| `worker` | 9101 | Poller + intelligence jobs |
+| `db` | 5432 | PostgreSQL + TimescaleDB |
+| `prometheus` | 9090 | Metrics collection |
+| `grafana` | 3001 | Dashboards (optional) |
+
+---
+
+## Running
+
+```bash
+# Setup
+cp .env.example .env
+# Edit .env with your settings
+
+# Build and run
+docker compose up --build -d
+
+# Apply migrations
+docker compose exec api alembic upgrade head
+
+# View logs
+docker compose logs -f
+```
+
+---
+
+## Development
+
+```bash
+# Frontend
+cd frontend
+npm install
+npm run dev  # Vite dev server
+
+# Backend
+cd backend
+# Run tests
+pytest
+
+# Apply migrations
+alembic upgrade head
+```
+
+---
+
+## File Structure
+
+```
+s_power/
+├── backend/
+│   ├── main.py              # FastAPI app
+│   ├── poller.py            # Gateway polling
+│   ├── worker_entry.py      # APScheduler jobs
+│   ├── models.py            # SQLAlchemy models
+│   ├── schemas.py           # Pydantic schemas
+│   ├── settings.py         # Environment config
+│   ├── db.py                # Database connection
+│   ├── repositories/        # Data access layer
+│   │   ├── charger.py
+│   │   ├── telemetry.py
+│   │   └── alerts.py
+│   ├── services/            # Business logic
+│   ├── jobs/                # Intelligence jobs
+│   └── observability/       # Health, metrics, logging
+├── frontend/
+│   ├── src/
+│   │   ├── app/            # App.tsx, providers
+│   │   ├── components/     # React components
+│   │   │   ├── dashboard/ # LiveFlow, StatCard, etc.
+│   │   │   ├── charts/     # ECharts
+│   │   │   └── alerts/      # Alert components
+│   │   ├── features/       # TanStack Query hooks
+│   │   │   ├── live/
+│   │   │   ├── history/
+│   │   │   ├── charger/
+│   │   │   └── alerts/
+│   │   ├── styles/         # CSS tokens + base
+│   │   └── hooks/          # useTheme
+│   └── index.html
+├── docker-compose.yml
+├── Dockerfile
+├── alembic/                 # Database migrations
+├── ops/                     # Backup/restore scripts
+└── README.md
+```
+
+---
+
+## Key Patterns
+
+### Data Fetching
+- TanStack Query with 20s polling for live data
+- 30s polling for charger data
+- Manual refresh available
+
+### Theme
+- Uses `data-theme="dark"` on `<html>`
+- CSS custom properties for colors
+- Persisted to localStorage
+- System preference detection
+
+### Charts
+- ECharts with custom styling
+- Line chart: Power (kW) over time
+- Bar chart: Energy (kWh) by day/week/month
+- Net shown as dashed line overlay
+
+---
+
+## Extensibility
+
+Future additions planned:
+- Battery storage monitoring
+- Smart home device integration
+- Weather correlation
+- Cost tracking
+- Multiple home support
+- Home Assistant integration
