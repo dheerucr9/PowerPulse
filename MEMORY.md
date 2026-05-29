@@ -97,9 +97,11 @@ PowerPulse is a self-contained Docker stack for monitoring home energy systems. 
 
 ### Gateway (Required)
 - `GATEWAY_IP` - Solar gateway IP
-- `GATEWAY_USER` - Gateway username
-- `GATEWAY_PASS` - Gateway password
+- `GATEWAY_USER` - SunPower/SunStrong local PVS gateway auth username
+- `GATEWAY_PASS` - SunPower/SunStrong local PVS gateway auth password
 - `GATEWAY_TIMEOUT` - Request timeout (default 20s)
+
+Gateway auth flow: `GET https://<GATEWAY_IP>/auth?login` with HTTP Basic Auth, then reuse the returned session/cookie for `https://<GATEWAY_IP>/cgi-bin/dl_cgi/devices/list`. Keep actual gateway credentials in `.env` only; do not commit them.
 
 ### Location (Required)
 - `LATITUDE` / `LONGITUDE` - For day/night rendering

@@ -51,10 +51,19 @@ Copy `.env.example` to `.env` and configure these variables:
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `GATEWAY_IP` | IP address of your solar gateway | `192.168.1.100` |
-| `GATEWAY_USER` | Gateway username | `admin` |
-| `GATEWAY_PASS` | Gateway password | `secret123` |
+| `GATEWAY_USER` | SunPower/SunStrong gateway auth username | `<gateway-user>` |
+| `GATEWAY_PASS` | SunPower/SunStrong gateway auth password | `<gateway-password>` |
 | `GATEWAY_TIMEOUT` | Request timeout in seconds (default: 20) | `20` |
 | `POLL_SECONDS` | Polling interval (default: 60) | `60` |
+
+PowerPulse authenticates to the gateway with `GET https://<GATEWAY_IP>/auth?login`, then reads telemetry from `https://<GATEWAY_IP>/cgi-bin/dl_cgi/devices/list`. Use the credentials assigned to the local PVS gateway itself, not the PowerPulse dashboard, database, Grafana, or router credentials. Keep the real values only in `.env`; `.env` is gitignored.
+
+To verify credentials manually:
+
+```bash
+curl -k -c /tmp/pvs.cookies --basic -u "<gateway-user>:<gateway-password>" "https://<GATEWAY_IP>/auth?login"
+curl -k -b /tmp/pvs.cookies "https://<GATEWAY_IP>/cgi-bin/dl_cgi/devices/list"
+```
 
 ### Location (Required)
 | Variable | Description | Example |
